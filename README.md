@@ -23,8 +23,14 @@ If a bus API key is entered, it also creates two bus sensors:
 - `2012 군자동주민센터 05241`
 - `2012 군자동주민센터 05242`
 
-Attributes include raw arrival message, destination, current location, generated
-timestamp, vehicle ID, and second-arrival data when the API provides it.
+Each API refresh stores an estimated arrival timestamp from the API receipt time
+plus the API-provided remaining seconds. Sensor states count down locally every
+30 seconds between API refreshes, so the dashboard stays fresh without increasing
+API traffic. Subway API refreshes default to every 90 seconds.
+
+Attributes include raw arrival message, API-provided remaining time, estimated
+arrival timestamp, destination, current location, generated timestamp, vehicle
+ID, and second-arrival data when the API provides it.
 
 ## API Keys
 

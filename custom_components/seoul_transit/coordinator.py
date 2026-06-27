@@ -46,7 +46,9 @@ class SeoulSubwayCoordinator(DataUpdateCoordinator[dict[str, Arrival | None]]):
         except SeoulTransitAuthError as err:
             raise ConfigEntryAuthFailed from err
         except SeoulTransitConnectionError as err:
-            raise UpdateFailed(f"Error communicating with Seoul subway API: {err}") from err
+            raise UpdateFailed(
+                f"Error communicating with Seoul subway API: {err}"
+            ) from err
 
         data: dict[str, Arrival | None] = {}
         for line_id in SUBWAY_LINES:
@@ -59,7 +61,9 @@ class SeoulSubwayCoordinator(DataUpdateCoordinator[dict[str, Arrival | None]]):
                     current = data[key]
                     if current is not None:
                         current.attributes["second_arrival_minutes"] = second.minutes
-                        current.attributes["second_arrival_message"] = second.raw_message
+                        current.attributes["second_arrival_message"] = (
+                            second.raw_message
+                        )
                         current.attributes["second_destination"] = second.destination
         return data
 
@@ -90,5 +94,6 @@ class SeoulBusCoordinator(DataUpdateCoordinator[dict[str, Arrival | None]]):
         except SeoulTransitAuthError as err:
             raise ConfigEntryAuthFailed from err
         except SeoulTransitConnectionError as err:
-            raise UpdateFailed(f"Error communicating with Seoul bus API: {err}") from err
-
+            raise UpdateFailed(
+                f"Error communicating with Seoul bus API: {err}"
+            ) from err

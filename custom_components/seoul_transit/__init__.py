@@ -14,6 +14,7 @@ from .const import (
     DEFAULT_BUS_SCAN_INTERVAL,
     DEFAULT_SUBWAY_SCAN_INTERVAL,
     DOMAIN,
+    OLD_DEFAULT_SUBWAY_SCAN_INTERVAL,
     PLATFORMS,
 )
 
@@ -60,6 +61,17 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_migrate_entry(hass: Any, entry: Any) -> bool:
+    """Migrate Seoul Transit config entries."""
+
+    if entry.version == 1:
+        data = dict(entry.data)
+        if data.get(CONF_SUBWAY_SCAN_INTERVAL) == OLD_DEFAULT_SUBWAY_SCAN_INTERVAL:
+            data[CONF_SUBWAY_SCAN_INTERVAL] = DEFAULT_SUBWAY_SCAN_INTERVAL
+        hass.config_entries.async_update_entry(entry, data=data, version=2)
     return True
 
 

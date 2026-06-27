@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -15,6 +17,7 @@ from custom_components.seoul_transit.api import (
 from custom_components.seoul_transit.const import BUS_STOPS
 
 FIXTURES = Path(__file__).parent / "fixtures"
+SEOUL_TZ = ZoneInfo("Asia/Seoul")
 
 
 def test_parse_subway_payload_filters_gunja_lines_and_sorts() -> None:
@@ -30,6 +33,13 @@ def test_parse_subway_payload_filters_gunja_lines_and_sorts() -> None:
     }
     first_line_5_up = arrivals[("1005", "상행")][0]
     assert first_line_5_up.minutes == 2
+    assert first_line_5_up.remaining_seconds == 120
+    assert first_line_5_up.received_at == datetime(
+        2026, 6, 27, 18, 35, 38, tzinfo=SEOUL_TZ
+    )
+    assert first_line_5_up.estimated_arrival_at == datetime(
+        2026, 6, 27, 18, 37, 38, tzinfo=SEOUL_TZ
+    )
     assert first_line_5_up.line_name == "5호선"
     assert first_line_5_up.station_name == "군자(능동)"
     assert first_line_5_up.destination == "방화"
@@ -37,7 +47,11 @@ def test_parse_subway_payload_filters_gunja_lines_and_sorts() -> None:
 
 
 def test_parse_subway_payload_no_data_is_empty() -> None:
-    payload = {"status": 500, "code": "INFO-200", "message": "해당하는 데이터가 없습니다."}
+    payload = {
+        "status": 500,
+        "code": "INFO-200",
+        "message": "해당하는 데이터가 없습니다.",
+    }
 
     assert parse_subway_payload(payload) == {}
 
@@ -49,11 +63,19 @@ def test_parse_bus_payload_success() -> None:
 
     assert arrival is not None
     assert arrival.minutes == 4
+    assert arrival.remaining_seconds == 200
+    assert arrival.received_at == datetime(2026, 6, 27, 18, 35, tzinfo=SEOUL_TZ)
+    assert arrival.estimated_arrival_at == datetime(
+        2026, 6, 27, 18, 38, 20, tzinfo=SEOUL_TZ
+    )
     assert arrival.raw_message == "3분 20초후[2번째 전]"
     assert arrival.stop_id == "104000148"
     assert arrival.ars_id == "05241"
     assert arrival.route_name == "2012"
     assert arrival.attributes["second_arrival_minutes"] == 10
+    assert arrival.attributes["second_estimated_arrival_at"] == datetime(
+        2026, 6, 27, 18, 44, 10, tzinfo=SEOUL_TZ
+    )
     assert arrival.vehicle_id == "서울70사1234"
 
 
@@ -71,4 +93,3 @@ def test_parse_bus_payload_auth_failure_does_not_leak_key() -> None:
 
     assert "SERVICE KEY" in str(exc_info.value)
     assert "d2a911" not in str(exc_info.value)
-

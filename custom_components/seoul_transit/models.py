@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from .const import BUS_STOPS, DOMAIN, SUBWAY_DIRECTIONS, SUBWAY_LINES
@@ -14,6 +16,9 @@ class Arrival:
 
     minutes: int | None
     raw_message: str | None
+    remaining_seconds: int | None = None
+    received_at: datetime | None = None
+    estimated_arrival_at: datetime | None = None
     destination: str | None = None
     current_location: str | None = None
     generated_at: str | None = None
@@ -85,9 +90,14 @@ def unique_id_for_sensor(key: str) -> str:
     return f"{DOMAIN}_{key}"
 
 
-def native_minutes(arrival: Arrival | None) -> int | None:
+def native_minutes(arrival: Arrival | None, now: datetime | None = None) -> int | None:
     """Return a sensor native value from a normalized arrival."""
 
     if arrival is None:
         return None
+    if arrival.estimated_arrival_at is not None:
+        if now is None:
+            now = datetime.now(arrival.estimated_arrival_at.tzinfo)
+        remaining = (arrival.estimated_arrival_at - now).total_seconds()
+        return max(0, math.ceil(remaining / 60))
     return arrival.minutes

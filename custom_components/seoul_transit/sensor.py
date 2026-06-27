@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import UnitOfTime
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SUBWAY_LINES
+from .const import DOMAIN, LOCAL_COUNTDOWN_UPDATE_INTERVAL, SUBWAY_LINES
 from .models import (
     Arrival,
     SensorSpec,
@@ -58,6 +61,25 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
             entry_type=DeviceEntryType.SERVICE,
         )
 
+    async def async_added_to_hass(self) -> None:
+        """Start local countdown updates between API refreshes."""
+
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass,
+                self._async_handle_local_countdown_update,
+                timedelta(seconds=LOCAL_COUNTDOWN_UPDATE_INTERVAL),
+            )
+        )
+
+    @callback
+    def _async_handle_local_countdown_update(self, _now: datetime) -> None:
+        """Refresh the HA state without making an API request."""
+
+        if self._arrival is not None and self._arrival.estimated_arrival_at is not None:
+            self.async_write_ha_state()
+
     @property
     def native_value(self) -> int | None:
         """Return minutes until the next arrival."""
@@ -96,6 +118,10 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
         attrs.update(
             {
                 "raw_message": arrival.raw_message,
+                "api_remaining_minutes": arrival.minutes,
+                "api_remaining_seconds": arrival.remaining_seconds,
+                "received_at": _isoformat(arrival.received_at),
+                "estimated_arrival_at": _isoformat(arrival.estimated_arrival_at),
                 "destination": arrival.destination,
                 "current_location": arrival.current_location,
                 "generated_at": arrival.generated_at,
@@ -108,8 +134,18 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
             }
         )
         attrs.update(arrival.attributes)
-        return {key: value for key, value in attrs.items() if value is not None}
+        return {
+            key: _isoformat(value) if isinstance(value, datetime) else value
+            for key, value in attrs.items()
+            if value is not None
+        }
 
     @property
     def _arrival(self) -> Arrival | None:
         return (self.coordinator.data or {}).get(self._spec.key)
+
+
+def _isoformat(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()

@@ -6,8 +6,10 @@ import json
 import math
 import re
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from .const import (
     BUS_STOPS,
@@ -22,6 +24,8 @@ SUBWAY_API_BASE = "http://swopenapi.seoul.go.kr/api/subway"
 BUS_API_URL = "http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute"
 
 AUTH_MARKERS = ("KEY", "Key", "인증", "SERVICE KEY", "등록되지")
+SEOUL_TZ = ZoneInfo("Asia/Seoul")
+DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y%m%d%H%M%S")
 
 
 class SeoulTransitError(Exception):
@@ -62,6 +66,27 @@ def _minutes_from_message(message: str | None) -> int | None:
     return None
 
 
+def _parse_local_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    for date_format in DATETIME_FORMATS:
+        try:
+            parsed = datetime.strptime(value.strip(), date_format)
+            return parsed.replace(tzinfo=SEOUL_TZ)
+        except ValueError:
+            continue
+    return None
+
+
+def _estimated_arrival_at(
+    received_at: datetime | None,
+    remaining_seconds: int | None,
+) -> datetime | None:
+    if received_at is None or remaining_seconds is None:
+        return None
+    return received_at + timedelta(seconds=remaining_seconds)
+
+
 def _looks_like_auth_error(code: str | None, message: str | None) -> bool:
     combined = f"{code or ''} {message or ''}"
     return any(marker in combined for marker in AUTH_MARKERS)
@@ -95,9 +120,13 @@ def parse_subway_payload(
             continue
 
         seconds = _parse_int(row.get("barvlDt"))
+        received_at = _parse_local_datetime(row.get("recptnDt"))
         arrival = Arrival(
             minutes=_seconds_to_minutes(seconds),
             raw_message=row.get("arvlMsg2"),
+            remaining_seconds=seconds,
+            received_at=received_at,
+            estimated_arrival_at=_estimated_arrival_at(received_at, seconds),
             destination=row.get("bstatnNm"),
             current_location=row.get("arvlMsg3"),
             generated_at=row.get("recptnDt"),
@@ -166,10 +195,15 @@ def parse_bus_payload(xml_text: str, stop: BusStop) -> Arrival | None:
     second_minutes = _seconds_to_minutes(second_seconds)
     if second_minutes is None:
         second_minutes = _minutes_from_message(second_message)
+    received_at = _parse_local_datetime(text("mkTm"))
+    second_estimated_arrival_at = _estimated_arrival_at(received_at, second_seconds)
 
     return Arrival(
         minutes=first_minutes,
         raw_message=first_message,
+        remaining_seconds=first_seconds,
+        received_at=received_at,
+        estimated_arrival_at=_estimated_arrival_at(received_at, first_seconds),
         destination=text("nxtStn"),
         current_location=text("sectNm"),
         generated_at=text("mkTm"),
@@ -183,6 +217,7 @@ def parse_bus_payload(xml_text: str, stop: BusStop) -> Arrival | None:
             "order": text("ord") or stop.order,
             "second_arrival_minutes": second_minutes,
             "second_arrival_message": second_message,
+            "second_estimated_arrival_at": second_estimated_arrival_at,
             "second_vehicle_id": text("plainNo2") or text("vehId2"),
             "low_plate": text("busType1"),
             "reroute": text("isFullFlag1"),
