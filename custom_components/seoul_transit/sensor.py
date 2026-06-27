@@ -21,8 +21,10 @@ from .models import (
     active_arrival_index,
     active_estimated_arrival_at,
     build_sensor_specs,
+    clean_station_name,
     native_minutes,
     next_minute_change_delay,
+    public_arrival_attributes,
     unique_id_for_sensor,
 )
 
@@ -85,7 +87,7 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
         """Refresh the HA state without making an API request."""
 
         self._cancel_local_countdown_update = None
-        if self._arrival is not None and self._arrival.estimated_arrival_at is not None:
+        if self._arrival is not None:
             self.async_write_ha_state()
         self._schedule_local_countdown_update()
 
@@ -137,7 +139,9 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
             attrs.update(
                 {
                     "station": (
-                        arrival.station_name if arrival else self._spec.station_name
+                        arrival.station_name
+                        if arrival
+                        else clean_station_name(self._spec.station_name)
                     ),
                     "station_key": self._spec.station_key,
                     "line": arrival.line_name
@@ -153,10 +157,12 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
         attrs.update(
             {
                 "raw_message": arrival.raw_message,
+                "message": arrival.message,
                 "api_remaining_minutes": arrival.minutes,
                 "api_remaining_seconds": arrival.remaining_seconds,
                 "received_at": _isoformat(arrival.received_at),
                 "estimated_arrival_at": _isoformat(arrival.estimated_arrival_at),
+                "has_eta": arrival.has_eta,
                 "active_arrival_index": active_arrival_index(arrival),
                 "active_estimated_arrival_at": _isoformat(
                     active_estimated_arrival_at(arrival)
@@ -170,8 +176,26 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
                 "stop": arrival.stop_name,
                 "stop_id": arrival.stop_id,
                 "ars_id": arrival.ars_id,
+                "first_arrival": public_arrival_attributes(arrival),
+                "second_arrival": public_arrival_attributes(arrival.following[0])
+                if arrival.following
+                else None,
             }
         )
+        if arrival.following:
+            second = arrival.following[0]
+            attrs.update(
+                {
+                    "second_arrival_minutes": second.minutes,
+                    "second_arrival_seconds": second.remaining_seconds,
+                    "second_arrival_message": second.message,
+                    "second_destination": second.destination,
+                    "second_current_location": second.current_location,
+                    "second_estimated_arrival_at": _isoformat(
+                        second.estimated_arrival_at
+                    ),
+                }
+            )
         attrs.update(arrival.attributes)
         return {
             key: _isoformat(value) if isinstance(value, datetime) else value

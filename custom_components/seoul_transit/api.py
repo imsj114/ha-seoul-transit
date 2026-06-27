@@ -18,7 +18,12 @@ from .const import (
     BusStop,
     SubwayStop,
 )
-from .models import Arrival, subway_sensor_key
+from .models import (
+    Arrival,
+    clean_arrival_message,
+    clean_station_name,
+    subway_sensor_key,
+)
 
 SUBWAY_API_BASE = "http://swopenapi.seoul.go.kr/api/subway"
 BUS_API_URL = "http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute"
@@ -26,6 +31,9 @@ BUS_API_URL = "http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute"
 AUTH_MARKERS = ("KEY", "Key", "인증", "SERVICE KEY", "등록되지")
 SEOUL_TZ = ZoneInfo("Asia/Seoul")
 DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y%m%d%H%M%S")
+SUBWAY_POSITION_RE = re.compile(
+    r"^\[(?P<stops>\d+)\]번째 전역 \((?P<station>.+)\)$"
+)
 
 
 class SeoulTransitError(Exception):
@@ -87,6 +95,19 @@ def _estimated_arrival_at(
     return received_at + timedelta(seconds=remaining_seconds)
 
 
+def _subway_position_attributes(message: str | None) -> dict[str, Any]:
+    if message is None:
+        return {}
+    match = SUBWAY_POSITION_RE.match(message.strip())
+    if not match:
+        return {}
+    return {
+        "stops_away": int(match.group("stops")),
+        "position_station": clean_station_name(match.group("station")),
+        "position_type": "previous_station",
+    }
+
+
 def _looks_like_auth_error(code: str | None, message: str | None) -> bool:
     combined = f"{code or ''} {message or ''}"
     return any(marker in combined for marker in AUTH_MARKERS)
@@ -119,27 +140,34 @@ def parse_subway_payload(
         if station_name and row.get("statnNm") != station_name:
             continue
 
+        raw_message = row.get("arvlMsg2")
+        position_attributes = _subway_position_attributes(raw_message)
         seconds = _parse_int(row.get("barvlDt"))
+        has_eta = not (seconds == 0 and position_attributes)
+        eta_seconds = seconds if has_eta else None
         received_at = _parse_local_datetime(row.get("recptnDt"))
         arrival = Arrival(
-            minutes=_seconds_to_minutes(seconds),
-            raw_message=row.get("arvlMsg2"),
-            remaining_seconds=seconds,
+            minutes=_seconds_to_minutes(eta_seconds),
+            raw_message=raw_message,
+            message=clean_arrival_message(raw_message),
+            remaining_seconds=eta_seconds,
             received_at=received_at,
-            estimated_arrival_at=_estimated_arrival_at(received_at, seconds),
-            destination=row.get("bstatnNm"),
-            current_location=row.get("arvlMsg3"),
+            estimated_arrival_at=_estimated_arrival_at(received_at, eta_seconds),
+            has_eta=has_eta,
+            destination=clean_station_name(row.get("bstatnNm")),
+            current_location=clean_station_name(row.get("arvlMsg3")),
             generated_at=row.get("recptnDt"),
             vehicle_id=row.get("btrainNo"),
             line_id=line_id,
             line_name=SUBWAY_LINE_NAMES.get(line_id),
             direction=direction,
-            station_name=row.get("statnNm"),
+            station_name=clean_station_name(row.get("statnNm")),
             attributes={
                 "train_line_name": row.get("trainLineNm"),
                 "arrival_code": row.get("arvlCd"),
                 "terminal_station_id": row.get("bstatnId"),
                 "last_car": row.get("lstcarAt") == "1",
+                **position_attributes,
             },
         )
         arrivals.setdefault((line_id, direction), []).append(arrival)
@@ -201,9 +229,11 @@ def parse_bus_payload(xml_text: str, stop: BusStop) -> Arrival | None:
     return Arrival(
         minutes=first_minutes,
         raw_message=first_message,
+        message=first_message,
         remaining_seconds=first_seconds,
         received_at=received_at,
         estimated_arrival_at=_estimated_arrival_at(received_at, first_seconds),
+        has_eta=first_seconds is not None,
         destination=text("nxtStn"),
         current_location=text("sectNm"),
         generated_at=text("mkTm"),
@@ -222,6 +252,28 @@ def parse_bus_payload(xml_text: str, stop: BusStop) -> Arrival | None:
             "low_plate": text("busType1"),
             "reroute": text("isFullFlag1"),
         },
+        following=(
+            Arrival(
+                minutes=second_minutes,
+                raw_message=second_message,
+                message=second_message,
+                remaining_seconds=second_seconds,
+                received_at=received_at,
+                estimated_arrival_at=second_estimated_arrival_at,
+                has_eta=second_seconds is not None,
+                destination=text("nxtStn"),
+                current_location=text("sectNm"),
+                generated_at=text("mkTm"),
+                vehicle_id=text("plainNo2") or text("vehId2"),
+                stop_name=text("stNm") or stop.name,
+                stop_id=text("stId") or stop.stop_id,
+                ars_id=text("arsId") or stop.ars_id,
+                route_id=text("busRouteId") or stop.route_id,
+                route_name=text("rtNm") or stop.route_name,
+            ),
+        )
+        if second_message
+        else (),
     )
 
 

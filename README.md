@@ -30,16 +30,20 @@ If a bus API key is entered, it also creates two bus sensors:
 
 Each API refresh stores an estimated arrival timestamp from the API receipt time
 plus the API-provided remaining seconds. Sensor states use conservative floored
-minutes and schedule local updates for the next minute boundary between API
-refreshes, so the dashboard changes promptly without increasing API traffic. If
-the closest subway arrival passes before the next API refresh, the sensor rolls
-over to the second subway arrival estimate when the API provided one. Subway API
-refreshes default to every 180 seconds, which keeps the two station endpoint
-calls under roughly 1,000 calls per day.
+minutes for the first train only, clamp at `0`, and schedule local updates for
+minute boundaries between API refreshes. The state does not roll over to the
+second train when the first train has passed, but the second train is exposed as
+structured attributes and can keep counting down locally. Subway API refreshes
+default to every 180 seconds, which keeps the two station endpoint calls under
+roughly 1,000 calls per day.
 
-Attributes include raw arrival message, API-provided remaining time, estimated
-arrival timestamp, destination, current location, generated timestamp, vehicle
-ID, and second-arrival data when the API provides it.
+Attributes include cleaned display station names, raw and cleaned arrival
+messages, API-provided remaining time, estimated arrival timestamp, destination,
+current location, generated timestamp, vehicle ID, and `first_arrival` /
+`second_arrival` dictionaries with the same shape. When the subway API provides
+position-only data such as `[2]번째 전역 (강남)`, the arrival has `has_eta: false`,
+`minutes: null`, `stops_away: 2`, and `position_station: 강남` so dashboards can
+display `2번째 전역` instead of treating it as an exact `0분` ETA.
 
 ## API Keys
 

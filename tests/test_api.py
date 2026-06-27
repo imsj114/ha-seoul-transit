@@ -41,7 +41,7 @@ def test_parse_subway_payload_filters_gunja_lines_and_sorts() -> None:
         2026, 6, 27, 18, 37, 38, tzinfo=SEOUL_TZ
     )
     assert first_line_5_up.line_name == "5호선"
-    assert first_line_5_up.station_name == "군자(능동)"
+    assert first_line_5_up.station_name == "군자"
     assert first_line_5_up.destination == "방화"
     assert arrivals[("1005", "상행")][1].minutes == 8
 
@@ -59,18 +59,18 @@ def test_parse_subway_payload_supports_nonhyeon_lines() -> None:
                 "statnNm": "논현",
                 "barvlDt": "90",
                 "recptnDt": "2026-06-27 19:10:00",
-                "arvlMsg2": "1분 30초 후",
-                "arvlMsg3": "학동",
+                "arvlMsg2": "1분 30초 후 (어린이대공원(세종대))",
+                "arvlMsg3": "어린이대공원(세종대)",
                 "bstatnNm": "장암",
             },
             {
                 "subwayId": "1077",
                 "updnLine": "하행",
                 "statnNm": "논현",
-                "barvlDt": "240",
+                "barvlDt": "0",
                 "recptnDt": "2026-06-27 19:10:00",
-                "arvlMsg2": "4분 후",
-                "arvlMsg3": "신논현",
+                "arvlMsg2": "[4]번째 전역 (양재시민의숲)",
+                "arvlMsg3": "양재시민의숲",
                 "bstatnNm": "광교",
             },
         ],
@@ -79,8 +79,23 @@ def test_parse_subway_payload_supports_nonhyeon_lines() -> None:
     arrivals = parse_subway_payload(payload, "논현", {"1007", "1077"})
 
     assert set(arrivals) == {("1007", "상행"), ("1077", "하행")}
-    assert arrivals[("1007", "상행")][0].line_name == "7호선"
-    assert arrivals[("1077", "하행")][0].line_name == "신분당선"
+    line_7 = arrivals[("1007", "상행")][0]
+    shinbundang = arrivals[("1077", "하행")][0]
+
+    assert line_7.line_name == "7호선"
+    assert line_7.message == "1분 30초 후 (어린이대공원)"
+    assert line_7.current_location == "어린이대공원"
+    assert line_7.remaining_seconds == 90
+    assert line_7.has_eta is True
+
+    assert shinbundang.line_name == "신분당선"
+    assert shinbundang.message == "[4]번째 전역 (양재시민의숲)"
+    assert shinbundang.minutes is None
+    assert shinbundang.remaining_seconds is None
+    assert shinbundang.estimated_arrival_at is None
+    assert shinbundang.has_eta is False
+    assert shinbundang.attributes["stops_away"] == 4
+    assert shinbundang.attributes["position_station"] == "양재시민의숲"
 
 
 def test_parse_subway_payload_no_data_is_empty() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -17,6 +18,7 @@ from .const import (
 )
 
 COUNTDOWN_CHANGE_DELAY_SECONDS = 0.1
+STATION_SUFFIX_RE = re.compile(r"\s*\([^)]*\)\s*$")
 
 
 @dataclass(frozen=True)
@@ -25,9 +27,11 @@ class Arrival:
 
     minutes: int | None
     raw_message: str | None
+    message: str | None = None
     remaining_seconds: int | None = None
     received_at: datetime | None = None
     estimated_arrival_at: datetime | None = None
+    has_eta: bool = True
     destination: str | None = None
     current_location: str | None = None
     generated_at: str | None = None
@@ -42,6 +46,7 @@ class Arrival:
     route_id: str | None = None
     route_name: str | None = None
     attributes: dict[str, Any] = field(default_factory=dict)
+    following: tuple[Arrival, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -112,12 +117,12 @@ def native_minutes(arrival: Arrival | None, now: datetime | None = None) -> int 
 
     if arrival is None:
         return None
-    active = active_arrival_remaining_seconds(arrival, now)
-    if active is not None:
-        return max(0, math.floor(active[1] / 60))
-    if arrival.estimated_arrival_at is not None:
-        return 0
-    return arrival.minutes
+    remaining = remaining_seconds_until_arrival(arrival, now)
+    if remaining is not None:
+        return max(0, math.floor(remaining / 60))
+    if arrival.minutes is not None:
+        return arrival.minutes
+    return 0 if arrival.raw_message is not None else None
 
 
 def next_minute_change_delay(
@@ -126,25 +131,27 @@ def next_minute_change_delay(
 ) -> float | None:
     """Return seconds until the displayed minute value should next change."""
 
-    active = active_arrival_remaining_seconds(arrival, now)
-    if active is None:
-        return None
+    delays: list[float] = []
+    for candidate in ordered_arrivals(arrival):
+        remaining = remaining_seconds_until_arrival(candidate, now)
+        if remaining is None:
+            continue
 
-    active_index, remaining = active
-    current_minutes = math.floor(remaining / 60)
-    if active_index == 1 and current_minutes <= 0 and _second_estimate(arrival):
-        return max(
-            COUNTDOWN_CHANGE_DELAY_SECONDS,
-            remaining + COUNTDOWN_CHANGE_DELAY_SECONDS,
+        current_minutes = math.floor(remaining / 60)
+        if current_minutes <= 0:
+            continue
+
+        seconds_until_boundary = remaining - (current_minutes * 60)
+        delays.append(
+            max(
+                COUNTDOWN_CHANGE_DELAY_SECONDS,
+                seconds_until_boundary + COUNTDOWN_CHANGE_DELAY_SECONDS,
+            )
         )
-    if current_minutes <= 0:
-        return None
 
-    seconds_until_boundary = remaining - (current_minutes * 60)
-    return max(
-        COUNTDOWN_CHANGE_DELAY_SECONDS,
-        seconds_until_boundary + COUNTDOWN_CHANGE_DELAY_SECONDS,
-    )
+    if not delays:
+        return None
+    return min(delays)
 
 
 def active_arrival_index(
@@ -153,10 +160,7 @@ def active_arrival_index(
 ) -> int | None:
     """Return the arrival number currently used for the sensor state."""
 
-    active = active_arrival_remaining_seconds(arrival, now)
-    if active is None:
-        return None
-    return active[0]
+    return 1 if arrival is not None else None
 
 
 def active_estimated_arrival_at(
@@ -165,12 +169,7 @@ def active_estimated_arrival_at(
 ) -> datetime | None:
     """Return the estimated arrival time currently used for the sensor state."""
 
-    active_index = active_arrival_index(arrival, now)
-    if active_index == 1:
-        return arrival.estimated_arrival_at if arrival else None
-    if active_index == 2:
-        return _second_estimate(arrival)
-    return None
+    return arrival.estimated_arrival_at if arrival else None
 
 
 def active_arrival_remaining_seconds(
@@ -179,17 +178,18 @@ def active_arrival_remaining_seconds(
 ) -> tuple[int, float] | None:
     """Return the active arrival number and remaining seconds for display."""
 
-    primary_remaining = remaining_seconds_until_arrival(arrival, now)
-    if primary_remaining is not None and primary_remaining >= 0:
-        return (1, primary_remaining)
+    remaining = remaining_seconds_until_arrival(arrival, now)
+    if remaining is None:
+        return None
+    return (1, remaining)
 
-    second_estimate = _second_estimate(arrival)
-    if second_estimate is None:
-        return None
-    second_remaining = _remaining_seconds_until(second_estimate, now)
-    if second_remaining is None or second_remaining < 0:
-        return None
-    return (2, second_remaining)
+
+def ordered_arrivals(arrival: Arrival | None) -> tuple[Arrival, ...]:
+    """Return the primary arrival followed by any later arrivals."""
+
+    if arrival is None:
+        return ()
+    return (arrival, *arrival.following)
 
 
 def remaining_seconds_until_arrival(
@@ -217,5 +217,69 @@ def _remaining_seconds_until(
 def _second_estimate(arrival: Arrival | None) -> datetime | None:
     if arrival is None:
         return None
+    if arrival.following:
+        return arrival.following[0].estimated_arrival_at
     value = arrival.attributes.get("second_estimated_arrival_at")
     return value if isinstance(value, datetime) else None
+
+
+def clean_station_name(value: str | None) -> str | None:
+    """Return a display station name without parenthetical suffixes."""
+
+    if value is None:
+        return None
+    return STATION_SUFFIX_RE.sub("", value).strip() or None
+
+
+def clean_arrival_message(value: str | None) -> str | None:
+    """Return an arrival message with parenthetical station suffixes stripped."""
+
+    if value is None:
+        return None
+    message = value.strip()
+    marker = " ("
+    if not message.endswith(")") or marker not in message:
+        return message or None
+    prefix, station = message.rsplit(marker, 1)
+    return f"{prefix} ({clean_station_name(station[:-1])})"
+
+
+def public_arrival_attributes(
+    arrival: Arrival,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Return one arrival in the public structured attribute shape."""
+
+    seconds = arrival.remaining_seconds
+    minutes = arrival.minutes
+    remaining = remaining_seconds_until_arrival(arrival, now)
+    if remaining is not None:
+        seconds = max(0, math.floor(remaining))
+        minutes = max(0, math.floor(remaining / 60))
+
+    return {
+        "message": arrival.message,
+        "raw_message": arrival.raw_message,
+        "minutes": minutes,
+        "seconds": seconds,
+        "estimated_arrival_at": _isoformat(arrival.estimated_arrival_at),
+        "has_eta": arrival.has_eta,
+        "destination": clean_station_name(arrival.destination),
+        "current_location": clean_station_name(arrival.current_location),
+        "generated_at": arrival.generated_at,
+        "received_at": _isoformat(arrival.received_at),
+        "vehicle_id": arrival.vehicle_id,
+        "train_line_name": arrival.attributes.get("train_line_name"),
+        "arrival_code": arrival.attributes.get("arrival_code"),
+        "terminal_station_id": arrival.attributes.get("terminal_station_id"),
+        "last_car": arrival.attributes.get("last_car"),
+        "stops_away": arrival.attributes.get("stops_away"),
+        "position_station": arrival.attributes.get("position_station"),
+        "position_type": arrival.attributes.get("position_type"),
+    }
+
+
+def _isoformat(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()

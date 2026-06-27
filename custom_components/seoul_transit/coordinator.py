@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from dataclasses import replace
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -53,23 +54,10 @@ class SeoulSubwayCoordinator(DataUpdateCoordinator[dict[str, Arrival | None]]):
         data: dict[str, Arrival | None] = {}
         for spec in build_sensor_specs(include_bus=False):
             values = arrivals.get(spec.key, [])
-            data[spec.key] = values[0] if values else None
-            if values[1:]:
-                second = values[1]
-                current = data[spec.key]
-                if current is not None:
-                    current.attributes["second_arrival_minutes"] = second.minutes
-                    current.attributes["second_arrival_seconds"] = (
-                        second.remaining_seconds
-                    )
-                    current.attributes["second_arrival_message"] = second.raw_message
-                    current.attributes["second_destination"] = second.destination
-                    current.attributes["second_current_location"] = (
-                        second.current_location
-                    )
-                    current.attributes["second_estimated_arrival_at"] = (
-                        second.estimated_arrival_at
-                    )
+            if not values:
+                data[spec.key] = None
+                continue
+            data[spec.key] = replace(values[0], following=tuple(values[1:]))
         return data
 
 
