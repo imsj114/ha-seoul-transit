@@ -29,7 +29,7 @@ async def async_setup_entry(
 
     runtime = hass.data[DOMAIN][entry.entry_id]
     entities: list[SeoulTransitArrivalSensor] = []
-    for spec in build_sensor_specs():
+    for spec in build_sensor_specs(include_bus=runtime.bus_coordinator is not None):
         coordinator = (
             runtime.subway_coordinator
             if spec.source == "subway"

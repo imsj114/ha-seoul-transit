@@ -50,7 +50,7 @@ def subway_sensor_key(line_id: str, direction: str) -> str:
     return f"subway_line_{line_key}_{direction_key}"
 
 
-def build_sensor_specs() -> tuple[SensorSpec, ...]:
+def build_sensor_specs(include_bus: bool = True) -> tuple[SensorSpec, ...]:
     """Return the complete fixed v1 sensor set."""
 
     subway_specs = tuple(
@@ -64,6 +64,9 @@ def build_sensor_specs() -> tuple[SensorSpec, ...]:
         for line_id, line_name in SUBWAY_LINES.items()
         for direction in SUBWAY_DIRECTIONS
     )
+    if not include_bus:
+        return subway_specs
+
     bus_specs = tuple(
         SensorSpec(
             key=stop.key,
@@ -88,4 +91,3 @@ def native_minutes(arrival: Arrival | None) -> int | None:
     if arrival is None:
         return None
     return arrival.minutes
-

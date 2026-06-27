@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Seoul Transit",
-        "description": "Enter Seoul Open Data API keys for Gunja subway and 2012 bus arrivals.",
+        "description": "Enter a Seoul subway API key for Gunja arrivals. The bus API key is optional and can be left blank for subway-only setup.",
         "data": {
           "subway_api_key": "Seoul subway API key",
-          "bus_api_key": "Seoul bus API key",
+          "bus_api_key": "Seoul bus API key (optional)",
           "subway_scan_interval": "Subway polling interval in seconds",
           "bus_scan_interval": "Bus polling interval in seconds"
         }
@@ -22,4 +22,3 @@
     }
   }
 }
-

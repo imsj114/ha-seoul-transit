@@ -24,7 +24,7 @@ class SeoulTransitRuntimeData:
 
     client: SeoulTransitApiClient
     subway_coordinator: Any
-    bus_coordinator: Any
+    bus_coordinator: Any | None
 
 
 async def async_setup_entry(hass: Any, entry: Any) -> bool:
@@ -38,17 +38,20 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
     client = SeoulTransitApiClient(
         session=session,
         subway_api_key=entry.data[CONF_SUBWAY_API_KEY],
-        bus_api_key=entry.data[CONF_BUS_API_KEY],
+        bus_api_key=entry.data.get(CONF_BUS_API_KEY),
     )
     subway_interval = entry.data.get(
         CONF_SUBWAY_SCAN_INTERVAL, DEFAULT_SUBWAY_SCAN_INTERVAL
     )
-    bus_interval = entry.data.get(CONF_BUS_SCAN_INTERVAL, DEFAULT_BUS_SCAN_INTERVAL)
     subway_coordinator = SeoulSubwayCoordinator(hass, entry, client, subway_interval)
-    bus_coordinator = SeoulBusCoordinator(hass, entry, client, bus_interval)
+    bus_coordinator = None
+    if entry.data.get(CONF_BUS_API_KEY):
+        bus_interval = entry.data.get(CONF_BUS_SCAN_INTERVAL, DEFAULT_BUS_SCAN_INTERVAL)
+        bus_coordinator = SeoulBusCoordinator(hass, entry, client, bus_interval)
 
     await subway_coordinator.async_config_entry_first_refresh()
-    await bus_coordinator.async_config_entry_first_refresh()
+    if bus_coordinator is not None:
+        await bus_coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = SeoulTransitRuntimeData(
         client=client,
@@ -67,4 +70,3 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
-

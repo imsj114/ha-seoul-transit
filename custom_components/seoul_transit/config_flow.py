@@ -34,7 +34,7 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_SUBWAY_API_KEY,
                 default=defaults.get(CONF_SUBWAY_API_KEY, ""),
             ): str,
-            vol.Required(
+            vol.Optional(
                 CONF_BUS_API_KEY,
                 default=defaults.get(CONF_BUS_API_KEY, ""),
             ): str,
@@ -64,6 +64,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors: dict[str, str] = {}
         if user_input is not None:
+            user_input = _normalize_user_input(user_input)
             await self.async_set_unique_id("gunja_2012")
             self._abort_if_unique_id_configured()
             try:
@@ -86,12 +87,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _async_validate_input(self, user_input: dict[str, Any]) -> None:
         """Validate API keys by requesting the configured v1 endpoints."""
 
+        if not user_input.get(CONF_SUBWAY_API_KEY):
+            raise SeoulTransitAuthError("Missing subway API key")
+
         session = async_get_clientsession(self.hass)
         client = SeoulTransitApiClient(
             session=session,
             subway_api_key=user_input[CONF_SUBWAY_API_KEY],
-            bus_api_key=user_input[CONF_BUS_API_KEY],
+            bus_api_key=user_input.get(CONF_BUS_API_KEY),
         )
         await client.async_fetch_subway()
-        await client.async_fetch_bus()
+        if user_input.get(CONF_BUS_API_KEY):
+            await client.async_fetch_bus()
 
+
+def _normalize_user_input(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Return config flow data with whitespace-only optional keys removed."""
+
+    data = dict(user_input)
+    for key in (CONF_SUBWAY_API_KEY, CONF_BUS_API_KEY):
+        if key in data and isinstance(data[key], str):
+            data[key] = data[key].strip()
+    if not data.get(CONF_BUS_API_KEY):
+        data.pop(CONF_BUS_API_KEY, None)
+    return data

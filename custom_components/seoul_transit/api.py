@@ -193,7 +193,12 @@ def parse_bus_payload(xml_text: str, stop: BusStop) -> Arrival | None:
 class SeoulTransitApiClient:
     """Small async client using Home Assistant's aiohttp session."""
 
-    def __init__(self, session: Any, subway_api_key: str, bus_api_key: str) -> None:
+    def __init__(
+        self,
+        session: Any,
+        subway_api_key: str,
+        bus_api_key: str | None = None,
+    ) -> None:
         self._session = session
         self._subway_api_key = subway_api_key
         self._bus_api_key = bus_api_key
