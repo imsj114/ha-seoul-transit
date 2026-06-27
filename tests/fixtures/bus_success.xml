@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ServiceResult>
+  <comMsgHeader/>
+  <msgHeader>
+    <headerCd>0</headerCd>
+    <headerMsg>정상적으로 처리되었습니다.</headerMsg>
+    <itemCount>1</itemCount>
+  </msgHeader>
+  <msgBody>
+    <itemList>
+      <stId>104000148</stId>
+      <stNm>군자동주민센터</stNm>
+      <arsId>05241</arsId>
+      <busRouteId>100100186</busRouteId>
+      <rtNm>2012</rtNm>
+      <ord>38</ord>
+      <arrmsg1>3분 20초후[2번째 전]</arrmsg1>
+      <arrmsg2>9분 10초후[5번째 전]</arrmsg2>
+      <traTime1>200</traTime1>
+      <traTime2>550</traTime2>
+      <plainNo1>서울70사1234</plainNo1>
+      <plainNo2>서울70사5678</plainNo2>
+      <sectNm>중앙농협군자지점</sectNm>
+      <nxtStn>군자동주민센터</nxtStn>
+      <mkTm>2026-06-27 18:35:00</mkTm>
+    </itemList>
+  </msgBody>
+</ServiceResult>
+

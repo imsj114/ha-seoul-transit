@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ServiceResult>
+  <comMsgHeader/>
+  <msgHeader>
+    <headerCd>0</headerCd>
+    <headerMsg>정상적으로 처리되었습니다.</headerMsg>
+    <itemCount>0</itemCount>
+  </msgHeader>
+  <msgBody/>
+</ServiceResult>
+

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ServiceResult>
+  <comMsgHeader/>
+  <msgHeader>
+    <headerCd>7</headerCd>
+    <headerMsg>Key인증실패: SERVICE KEY IS NOT REGISTERED ERROR.</headerMsg>
+    <itemCount>0</itemCount>
+  </msgHeader>
+  <msgBody/>
+</ServiceResult>
+

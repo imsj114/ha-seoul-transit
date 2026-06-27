@@ -1,0 +1,14 @@
+{
+  "domain": "seoul_transit",
+  "name": "Seoul Transit",
+  "version": "0.1.0",
+  "codeowners": ["@imsj114"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/imsj114/ha-seoul-transit",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/imsj114/ha-seoul-transit/issues",
+  "requirements": []
+}
+

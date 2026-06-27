@@ -1,0 +1,93 @@
+{
+  "errorMessage": {
+    "status": 200,
+    "code": "INFO-000",
+    "message": "정상 처리되었습니다.",
+    "total": 8
+  },
+  "realtimeArrivalList": [
+    {
+      "subwayId": "1005",
+      "updnLine": "상행",
+      "trainLineNm": "방화행 - 장한평방면",
+      "statnId": "1005000544",
+      "statnNm": "군자(능동)",
+      "barvlDt": "120",
+      "btrainNo": "5618",
+      "bstatnNm": "방화",
+      "recptnDt": "2026-06-27 18:35:38",
+      "arvlMsg2": "전역 도착",
+      "arvlMsg3": "아차산(어린이대공원후문)",
+      "arvlCd": "5",
+      "lstcarAt": "0"
+    },
+    {
+      "subwayId": "1005",
+      "updnLine": "상행",
+      "trainLineNm": "방화행 - 장한평방면",
+      "statnId": "1005000544",
+      "statnNm": "군자(능동)",
+      "barvlDt": "480",
+      "btrainNo": "5130",
+      "bstatnNm": "방화",
+      "recptnDt": "2026-06-27 18:35:38",
+      "arvlMsg2": "8분 후 (강동)",
+      "arvlMsg3": "강동",
+      "arvlCd": "99",
+      "lstcarAt": "0"
+    },
+    {
+      "subwayId": "1005",
+      "updnLine": "하행",
+      "trainLineNm": "마천행 - 아차산방면",
+      "statnId": "1005000544",
+      "statnNm": "군자(능동)",
+      "barvlDt": "60",
+      "btrainNo": "5625",
+      "bstatnNm": "마천",
+      "recptnDt": "2026-06-27 18:35:27",
+      "arvlMsg2": "군자(능동) 도착",
+      "arvlMsg3": "군자(능동)",
+      "arvlCd": "1",
+      "lstcarAt": "0"
+    },
+    {
+      "subwayId": "1007",
+      "updnLine": "상행",
+      "trainLineNm": "장암행 - 중곡방면",
+      "statnId": "1007000725",
+      "statnNm": "군자(능동)",
+      "barvlDt": "180",
+      "btrainNo": "7232",
+      "bstatnNm": "장암",
+      "recptnDt": "2026-06-27 18:35:26",
+      "arvlMsg2": "3분 후 (건대입구)",
+      "arvlMsg3": "건대입구",
+      "arvlCd": "99",
+      "lstcarAt": "0"
+    },
+    {
+      "subwayId": "1007",
+      "updnLine": "하행",
+      "trainLineNm": "석남행 - 어린이대공원방면",
+      "statnId": "1007000725",
+      "statnNm": "군자(능동)",
+      "barvlDt": "300",
+      "btrainNo": "7141",
+      "bstatnNm": "석남",
+      "recptnDt": "2026-06-27 18:35:26",
+      "arvlMsg2": "5분 후 (상봉)",
+      "arvlMsg3": "상봉",
+      "arvlCd": "99",
+      "lstcarAt": "0"
+    },
+    {
+      "subwayId": "1002",
+      "updnLine": "상행",
+      "statnNm": "군자(능동)",
+      "barvlDt": "1",
+      "arvlMsg2": "wrong line"
+    }
+  ]
+}
+
