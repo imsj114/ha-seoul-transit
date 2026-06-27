@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from custom_components.seoul_transit.models import (
     COUNTDOWN_CHANGE_DELAY_SECONDS,
     Arrival,
+    active_arrival_index,
     build_sensor_specs,
     native_minutes,
     next_minute_change_delay,
@@ -93,6 +94,23 @@ def test_native_minutes_counts_down_from_estimated_arrival_time() -> None:
     ) == 0
 
 
+def test_native_minutes_rolls_to_second_subway_arrival_after_first_passes() -> None:
+    now = datetime(2026, 6, 27, 18, 37, 38, tzinfo=SEOUL_TZ)
+    arrival = Arrival(
+        minutes=1,
+        raw_message="곧 도착",
+        estimated_arrival_at=now + timedelta(seconds=10),
+        attributes={
+            "second_estimated_arrival_at": now + timedelta(seconds=190),
+        },
+    )
+
+    assert native_minutes(arrival, now=now) == 0
+    assert active_arrival_index(arrival, now=now) == 1
+    assert native_minutes(arrival, now=now + timedelta(seconds=11)) == 2
+    assert active_arrival_index(arrival, now=now + timedelta(seconds=11)) == 2
+
+
 def test_next_minute_change_delay_targets_display_boundaries() -> None:
     estimated_arrival_at = datetime(2026, 6, 27, 18, 37, 38, tzinfo=SEOUL_TZ)
     arrival = Arrival(
@@ -115,4 +133,20 @@ def test_next_minute_change_delay_targets_display_boundaries() -> None:
             now=estimated_arrival_at - timedelta(seconds=59),
         )
         is None
+    )
+
+
+def test_next_minute_change_delay_targets_second_arrival_rollover() -> None:
+    now = datetime(2026, 6, 27, 18, 37, 38, tzinfo=SEOUL_TZ)
+    arrival = Arrival(
+        minutes=1,
+        raw_message="곧 도착",
+        estimated_arrival_at=now + timedelta(seconds=10),
+        attributes={
+            "second_estimated_arrival_at": now + timedelta(seconds=190),
+        },
+    )
+
+    assert next_minute_change_delay(arrival, now=now) == (
+        10 + COUNTDOWN_CHANGE_DELAY_SECONDS
     )

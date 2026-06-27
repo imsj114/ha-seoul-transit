@@ -18,6 +18,8 @@ from .const import DOMAIN, SUBWAY_LINE_NAMES
 from .models import (
     Arrival,
     SensorSpec,
+    active_arrival_index,
+    active_estimated_arrival_at,
     build_sensor_specs,
     native_minutes,
     next_minute_change_delay,
@@ -155,6 +157,10 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
                 "api_remaining_seconds": arrival.remaining_seconds,
                 "received_at": _isoformat(arrival.received_at),
                 "estimated_arrival_at": _isoformat(arrival.estimated_arrival_at),
+                "active_arrival_index": active_arrival_index(arrival),
+                "active_estimated_arrival_at": _isoformat(
+                    active_estimated_arrival_at(arrival)
+                ),
                 "destination": arrival.destination,
                 "current_location": arrival.current_location,
                 "generated_at": arrival.generated_at,

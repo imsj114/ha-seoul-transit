@@ -112,11 +112,11 @@ def native_minutes(arrival: Arrival | None, now: datetime | None = None) -> int 
 
     if arrival is None:
         return None
+    active = active_arrival_remaining_seconds(arrival, now)
+    if active is not None:
+        return max(0, math.floor(active[1] / 60))
     if arrival.estimated_arrival_at is not None:
-        remaining = remaining_seconds_until_arrival(arrival, now)
-        if remaining is None:
-            return arrival.minutes
-        return max(0, math.floor(remaining / 60))
+        return 0
     return arrival.minutes
 
 
@@ -126,11 +126,17 @@ def next_minute_change_delay(
 ) -> float | None:
     """Return seconds until the displayed minute value should next change."""
 
-    remaining = remaining_seconds_until_arrival(arrival, now)
-    if remaining is None:
+    active = active_arrival_remaining_seconds(arrival, now)
+    if active is None:
         return None
 
+    active_index, remaining = active
     current_minutes = math.floor(remaining / 60)
+    if active_index == 1 and current_minutes <= 0 and _second_estimate(arrival):
+        return max(
+            COUNTDOWN_CHANGE_DELAY_SECONDS,
+            remaining + COUNTDOWN_CHANGE_DELAY_SECONDS,
+        )
     if current_minutes <= 0:
         return None
 
@@ -141,6 +147,51 @@ def next_minute_change_delay(
     )
 
 
+def active_arrival_index(
+    arrival: Arrival | None,
+    now: datetime | None = None,
+) -> int | None:
+    """Return the arrival number currently used for the sensor state."""
+
+    active = active_arrival_remaining_seconds(arrival, now)
+    if active is None:
+        return None
+    return active[0]
+
+
+def active_estimated_arrival_at(
+    arrival: Arrival | None,
+    now: datetime | None = None,
+) -> datetime | None:
+    """Return the estimated arrival time currently used for the sensor state."""
+
+    active_index = active_arrival_index(arrival, now)
+    if active_index == 1:
+        return arrival.estimated_arrival_at if arrival else None
+    if active_index == 2:
+        return _second_estimate(arrival)
+    return None
+
+
+def active_arrival_remaining_seconds(
+    arrival: Arrival | None,
+    now: datetime | None = None,
+) -> tuple[int, float] | None:
+    """Return the active arrival number and remaining seconds for display."""
+
+    primary_remaining = remaining_seconds_until_arrival(arrival, now)
+    if primary_remaining is not None and primary_remaining >= 0:
+        return (1, primary_remaining)
+
+    second_estimate = _second_estimate(arrival)
+    if second_estimate is None:
+        return None
+    second_remaining = _remaining_seconds_until(second_estimate, now)
+    if second_remaining is None or second_remaining < 0:
+        return None
+    return (2, second_remaining)
+
+
 def remaining_seconds_until_arrival(
     arrival: Arrival | None,
     now: datetime | None = None,
@@ -149,6 +200,22 @@ def remaining_seconds_until_arrival(
 
     if arrival is None or arrival.estimated_arrival_at is None:
         return None
+    return _remaining_seconds_until(arrival.estimated_arrival_at, now)
+
+
+def _remaining_seconds_until(
+    estimated_arrival_at: datetime,
+    now: datetime | None = None,
+) -> float | None:
+    """Return signed remaining seconds for one estimated arrival time."""
+
     if now is None:
-        now = datetime.now(arrival.estimated_arrival_at.tzinfo)
-    return max(0.0, (arrival.estimated_arrival_at - now).total_seconds())
+        now = datetime.now(estimated_arrival_at.tzinfo)
+    return (estimated_arrival_at - now).total_seconds()
+
+
+def _second_estimate(arrival: Arrival | None) -> datetime | None:
+    if arrival is None:
+        return None
+    value = arrival.attributes.get("second_estimated_arrival_at")
+    return value if isinstance(value, datetime) else None

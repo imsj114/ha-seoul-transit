@@ -59,8 +59,14 @@ class SeoulSubwayCoordinator(DataUpdateCoordinator[dict[str, Arrival | None]]):
                 current = data[spec.key]
                 if current is not None:
                     current.attributes["second_arrival_minutes"] = second.minutes
+                    current.attributes["second_arrival_seconds"] = (
+                        second.remaining_seconds
+                    )
                     current.attributes["second_arrival_message"] = second.raw_message
                     current.attributes["second_destination"] = second.destination
+                    current.attributes["second_current_location"] = (
+                        second.current_location
+                    )
                     current.attributes["second_estimated_arrival_at"] = (
                         second.estimated_arrival_at
                     )
