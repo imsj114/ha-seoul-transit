@@ -16,6 +16,8 @@ from .const import (
     SUBWAY_STOPS,
 )
 
+COUNTDOWN_CHANGE_DELAY_SECONDS = 0.1
+
 
 @dataclass(frozen=True)
 class Arrival:
@@ -111,8 +113,42 @@ def native_minutes(arrival: Arrival | None, now: datetime | None = None) -> int 
     if arrival is None:
         return None
     if arrival.estimated_arrival_at is not None:
-        if now is None:
-            now = datetime.now(arrival.estimated_arrival_at.tzinfo)
-        remaining = (arrival.estimated_arrival_at - now).total_seconds()
-        return max(0, math.ceil(remaining / 60))
+        remaining = remaining_seconds_until_arrival(arrival, now)
+        if remaining is None:
+            return arrival.minutes
+        return max(0, math.floor(remaining / 60))
     return arrival.minutes
+
+
+def next_minute_change_delay(
+    arrival: Arrival | None,
+    now: datetime | None = None,
+) -> float | None:
+    """Return seconds until the displayed minute value should next change."""
+
+    remaining = remaining_seconds_until_arrival(arrival, now)
+    if remaining is None:
+        return None
+
+    current_minutes = math.floor(remaining / 60)
+    if current_minutes <= 0:
+        return None
+
+    seconds_until_boundary = remaining - (current_minutes * 60)
+    return max(
+        COUNTDOWN_CHANGE_DELAY_SECONDS,
+        seconds_until_boundary + COUNTDOWN_CHANGE_DELAY_SECONDS,
+    )
+
+
+def remaining_seconds_until_arrival(
+    arrival: Arrival | None,
+    now: datetime | None = None,
+) -> float | None:
+    """Return remaining seconds for arrivals with an estimated arrival time."""
+
+    if arrival is None or arrival.estimated_arrival_at is None:
+        return None
+    if now is None:
+        now = datetime.now(arrival.estimated_arrival_at.tzinfo)
+    return max(0.0, (arrival.estimated_arrival_at - now).total_seconds())

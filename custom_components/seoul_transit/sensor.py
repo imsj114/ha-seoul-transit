@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -10,15 +11,16 @@ from homeassistant.const import UnitOfTime
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOCAL_COUNTDOWN_UPDATE_INTERVAL, SUBWAY_LINE_NAMES
+from .const import DOMAIN, SUBWAY_LINE_NAMES
 from .models import (
     Arrival,
     SensorSpec,
     build_sensor_specs,
     native_minutes,
+    next_minute_change_delay,
     unique_id_for_sensor,
 )
 
@@ -52,6 +54,7 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: Any, spec: SensorSpec) -> None:
         super().__init__(coordinator)
         self._spec = spec
+        self._cancel_local_countdown_update: Callable[[], None] | None = None
         self._attr_name = spec.label
         self._attr_unique_id = unique_id_for_sensor(spec.key)
         self._attr_device_info = DeviceInfo(
@@ -65,20 +68,47 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
         """Start local countdown updates between API refreshes."""
 
         await super().async_added_to_hass()
-        self.async_on_remove(
-            async_track_time_interval(
-                self.hass,
-                self._async_handle_local_countdown_update,
-                timedelta(seconds=LOCAL_COUNTDOWN_UPDATE_INTERVAL),
-            )
-        )
+        self.async_on_remove(self._cancel_scheduled_local_countdown_update)
+        self._schedule_local_countdown_update()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle new API data and reschedule local countdown updates."""
+
+        super()._handle_coordinator_update()
+        self._schedule_local_countdown_update()
 
     @callback
     def _async_handle_local_countdown_update(self, _now: datetime) -> None:
         """Refresh the HA state without making an API request."""
 
+        self._cancel_local_countdown_update = None
         if self._arrival is not None and self._arrival.estimated_arrival_at is not None:
             self.async_write_ha_state()
+        self._schedule_local_countdown_update()
+
+    @callback
+    def _schedule_local_countdown_update(self) -> None:
+        """Schedule the next local update when the minute value should change."""
+
+        self._cancel_scheduled_local_countdown_update()
+        delay = next_minute_change_delay(self._arrival)
+        if delay is None:
+            return
+        self._cancel_local_countdown_update = async_call_later(
+            self.hass,
+            delay,
+            self._async_handle_local_countdown_update,
+        )
+
+    @callback
+    def _cancel_scheduled_local_countdown_update(self) -> None:
+        """Cancel the current local countdown timer, if one is pending."""
+
+        if self._cancel_local_countdown_update is None:
+            return
+        self._cancel_local_countdown_update()
+        self._cancel_local_countdown_update = None
 
     @property
     def native_value(self) -> int | None:

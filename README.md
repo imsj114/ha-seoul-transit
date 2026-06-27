@@ -29,10 +29,11 @@ If a bus API key is entered, it also creates two bus sensors:
 - `2012 군자동주민센터 05242`
 
 Each API refresh stores an estimated arrival timestamp from the API receipt time
-plus the API-provided remaining seconds. Sensor states count down locally every
-30 seconds between API refreshes, so the dashboard stays fresh without increasing
-API traffic. Subway API refreshes default to every 180 seconds, which keeps the
-two station endpoint calls under roughly 1,000 calls per day.
+plus the API-provided remaining seconds. Sensor states use conservative floored
+minutes and schedule local updates for the next minute boundary between API
+refreshes, so the dashboard changes promptly without increasing API traffic.
+Subway API refreshes default to every 180 seconds, which keeps the two station
+endpoint calls under roughly 1,000 calls per day.
 
 Attributes include raw arrival message, API-provided remaining time, estimated
 arrival timestamp, destination, current location, generated timestamp, vehicle

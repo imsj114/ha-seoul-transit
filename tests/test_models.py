@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from custom_components.seoul_transit.models import (
+    COUNTDOWN_CHANGE_DELAY_SECONDS,
     Arrival,
     build_sensor_specs,
     native_minutes,
+    next_minute_change_delay,
     subway_sensor_key,
     unique_id_for_sensor,
 )
@@ -76,12 +78,41 @@ def test_native_minutes_counts_down_from_estimated_arrival_time() -> None:
     assert native_minutes(
         arrival,
         now=estimated_arrival_at - timedelta(seconds=61),
-    ) == 2
+    ) == 1
     assert native_minutes(
         arrival,
         now=estimated_arrival_at - timedelta(seconds=60),
     ) == 1
     assert native_minutes(
         arrival,
+        now=estimated_arrival_at - timedelta(seconds=59),
+    ) == 0
+    assert native_minutes(
+        arrival,
         now=estimated_arrival_at + timedelta(seconds=1),
     ) == 0
+
+
+def test_next_minute_change_delay_targets_display_boundaries() -> None:
+    estimated_arrival_at = datetime(2026, 6, 27, 18, 37, 38, tzinfo=SEOUL_TZ)
+    arrival = Arrival(
+        minutes=3,
+        raw_message="2분 31초 후",
+        estimated_arrival_at=estimated_arrival_at,
+    )
+
+    assert next_minute_change_delay(
+        arrival,
+        now=estimated_arrival_at - timedelta(seconds=151),
+    ) == 31 + COUNTDOWN_CHANGE_DELAY_SECONDS
+    assert next_minute_change_delay(
+        arrival,
+        now=estimated_arrival_at - timedelta(seconds=120),
+    ) == COUNTDOWN_CHANGE_DELAY_SECONDS
+    assert (
+        next_minute_change_delay(
+            arrival,
+            now=estimated_arrival_at - timedelta(seconds=59),
+        )
+        is None
+    )
