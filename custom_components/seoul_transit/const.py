@@ -12,22 +12,56 @@ CONF_SUBWAY_SCAN_INTERVAL = "subway_scan_interval"
 CONF_BUS_SCAN_INTERVAL = "bus_scan_interval"
 
 OLD_DEFAULT_SUBWAY_SCAN_INTERVAL = 120
-DEFAULT_SUBWAY_SCAN_INTERVAL = 90
+V2_DEFAULT_SUBWAY_SCAN_INTERVAL = 90
+DEFAULT_SUBWAY_SCAN_INTERVAL = 180
 DEFAULT_BUS_SCAN_INTERVAL = 180
 MIN_SCAN_INTERVAL = 30
 LOCAL_COUNTDOWN_UPDATE_INTERVAL = 30
 
 PLATFORMS = ["sensor"]
 
-SUBWAY_STATION_NAME = "군자(능동)"
-SUBWAY_ENDPOINT_STATION_NAME = "군자(능동)"
 
-SUBWAY_LINES: dict[str, str] = {
+@dataclass(frozen=True)
+class SubwayStop:
+    """A fixed Seoul subway station used by this integration."""
+
+    key: str
+    name: str
+    label: str
+    endpoint_name: str
+    line_ids: tuple[str, ...]
+
+
+SUBWAY_LINE_NAMES: dict[str, str] = {
     "1005": "5호선",
     "1007": "7호선",
+    "1077": "신분당선",
+}
+
+SUBWAY_LINE_KEYS: dict[str, str] = {
+    "1005": "5",
+    "1007": "7",
+    "1077": "shinbundang",
 }
 
 SUBWAY_DIRECTIONS: tuple[str, str] = ("상행", "하행")
+
+SUBWAY_STOPS: tuple[SubwayStop, ...] = (
+    SubwayStop(
+        key="gunja",
+        name="군자(능동)",
+        label="군자",
+        endpoint_name="군자(능동)",
+        line_ids=("1005", "1007"),
+    ),
+    SubwayStop(
+        key="nonhyeon",
+        name="논현",
+        label="논현",
+        endpoint_name="논현",
+        line_ids=("1007", "1077"),
+    ),
+)
 
 BUS_ROUTE_ID = "100100186"
 BUS_ROUTE_NAME = "2012"

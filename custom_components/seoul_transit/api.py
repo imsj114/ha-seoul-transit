@@ -13,12 +13,12 @@ from zoneinfo import ZoneInfo
 
 from .const import (
     BUS_STOPS,
-    SUBWAY_ENDPOINT_STATION_NAME,
-    SUBWAY_LINES,
-    SUBWAY_STATION_NAME,
+    SUBWAY_LINE_NAMES,
+    SUBWAY_STOPS,
     BusStop,
+    SubwayStop,
 )
-from .models import Arrival
+from .models import Arrival, subway_sensor_key
 
 SUBWAY_API_BASE = "http://swopenapi.seoul.go.kr/api/subway"
 BUS_API_URL = "http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute"
@@ -94,12 +94,12 @@ def _looks_like_auth_error(code: str | None, message: str | None) -> bool:
 
 def parse_subway_payload(
     payload: dict[str, Any],
-    station_name: str = SUBWAY_STATION_NAME,
+    station_name: str | None = None,
     line_ids: set[str] | None = None,
 ) -> dict[tuple[str, str], list[Arrival]]:
     """Parse Seoul realtime subway JSON into arrivals by line and direction."""
 
-    line_ids = line_ids or set(SUBWAY_LINES)
+    line_ids = line_ids or set(SUBWAY_LINE_NAMES)
     error = payload.get("errorMessage") or payload
     code = str(error.get("code") or "")
     message = str(error.get("message") or "")
@@ -132,7 +132,7 @@ def parse_subway_payload(
             generated_at=row.get("recptnDt"),
             vehicle_id=row.get("btrainNo"),
             line_id=line_id,
-            line_name=SUBWAY_LINES.get(line_id),
+            line_name=SUBWAY_LINE_NAMES.get(line_id),
             direction=direction,
             station_name=row.get("statnNm"),
             attributes={
@@ -238,16 +238,30 @@ class SeoulTransitApiClient:
         self._subway_api_key = subway_api_key
         self._bus_api_key = bus_api_key
 
-    async def async_fetch_subway(self) -> dict[tuple[str, str], list[Arrival]]:
-        """Fetch and parse realtime arrivals for Gunja station."""
+    async def async_fetch_subway(self) -> dict[str, list[Arrival]]:
+        """Fetch and parse realtime arrivals for the configured subway stations."""
 
-        station = quote(SUBWAY_ENDPOINT_STATION_NAME, safe="")
+        results: dict[str, list[Arrival]] = {}
+        for stop in SUBWAY_STOPS:
+            arrivals = await self._async_fetch_subway_stop(stop)
+            for (line_id, direction), values in arrivals.items():
+                key = subway_sensor_key(line_id, direction, stop.key)
+                results[key] = values
+        return results
+
+    async def _async_fetch_subway_stop(
+        self,
+        stop: SubwayStop,
+    ) -> dict[tuple[str, str], list[Arrival]]:
+        """Fetch and parse realtime arrivals for one configured subway station."""
+
+        station = quote(stop.endpoint_name, safe="")
         url = (
             f"{SUBWAY_API_BASE}/{self._subway_api_key}/json/"
-            f"realtimeStationArrival/0/20/{station}"
+            f"realtimeStationArrival/0/40/{station}"
         )
         payload = await self._request_json(url)
-        return parse_subway_payload(payload)
+        return parse_subway_payload(payload, stop.name, set(stop.line_ids))
 
     async def async_fetch_bus(self) -> dict[str, Arrival | None]:
         """Fetch and parse realtime arrivals for the configured bus stops."""

@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, LOCAL_COUNTDOWN_UPDATE_INTERVAL, SUBWAY_LINES
+from .const import DOMAIN, LOCAL_COUNTDOWN_UPDATE_INTERVAL, SUBWAY_LINE_NAMES
 from .models import (
     Arrival,
     SensorSpec,
@@ -104,10 +104,13 @@ class SeoulTransitArrivalSensor(CoordinatorEntity, SensorEntity):
         if self._spec.source == "subway":
             attrs.update(
                 {
-                    "station": arrival.station_name if arrival else "군자(능동)",
+                    "station": (
+                        arrival.station_name if arrival else self._spec.station_name
+                    ),
+                    "station_key": self._spec.station_key,
                     "line": arrival.line_name
                     if arrival
-                    else SUBWAY_LINES.get(self._spec.line_id or ""),
+                    else SUBWAY_LINE_NAMES.get(self._spec.line_id or ""),
                     "line_id": self._spec.line_id,
                     "direction": self._spec.direction,
                 }

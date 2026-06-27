@@ -46,6 +46,43 @@ def test_parse_subway_payload_filters_gunja_lines_and_sorts() -> None:
     assert arrivals[("1005", "상행")][1].minutes == 8
 
 
+def test_parse_subway_payload_supports_nonhyeon_lines() -> None:
+    payload = {
+        "errorMessage": {
+            "code": "INFO-000",
+            "message": "정상 처리되었습니다.",
+        },
+        "realtimeArrivalList": [
+            {
+                "subwayId": "1007",
+                "updnLine": "상행",
+                "statnNm": "논현",
+                "barvlDt": "90",
+                "recptnDt": "2026-06-27 19:10:00",
+                "arvlMsg2": "1분 30초 후",
+                "arvlMsg3": "학동",
+                "bstatnNm": "장암",
+            },
+            {
+                "subwayId": "1077",
+                "updnLine": "하행",
+                "statnNm": "논현",
+                "barvlDt": "240",
+                "recptnDt": "2026-06-27 19:10:00",
+                "arvlMsg2": "4분 후",
+                "arvlMsg3": "신논현",
+                "bstatnNm": "광교",
+            },
+        ],
+    }
+
+    arrivals = parse_subway_payload(payload, "논현", {"1007", "1077"})
+
+    assert set(arrivals) == {("1007", "상행"), ("1077", "하행")}
+    assert arrivals[("1007", "상행")][0].line_name == "7호선"
+    assert arrivals[("1077", "하행")][0].line_name == "신분당선"
+
+
 def test_parse_subway_payload_no_data_is_empty() -> None:
     payload = {
         "status": 500,

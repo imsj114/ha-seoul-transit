@@ -1,8 +1,9 @@
 # Seoul Transit for Home Assistant
 
-Home Assistant custom integration for the next arrivals near Gunja:
+Home Assistant custom integration for selected Seoul transit arrivals:
 
 - Subway: Gunja / 군자(능동), Seoul subway lines 5 and 7
+- Subway: Nonhyeon / 논현, Seoul subway line 7 and Shinbundang line
 - Bus: Seoul bus 2012 at both Gunja-dong Community Service Center stops
   when a bus API key is configured
 
@@ -10,13 +11,17 @@ This repository intentionally does not contain API keys.
 
 ## Sensors
 
-The v1 integration always creates four subway duration sensors whose state is
+The integration always creates eight subway duration sensors whose state is
 minutes until the next arrival:
 
 - `군자 5호선 상행`
 - `군자 5호선 하행`
 - `군자 7호선 상행`
 - `군자 7호선 하행`
+- `논현 7호선 상행`
+- `논현 7호선 하행`
+- `논현 신분당선 상행`
+- `논현 신분당선 하행`
 
 If a bus API key is entered, it also creates two bus sensors:
 
@@ -26,7 +31,8 @@ If a bus API key is entered, it also creates two bus sensors:
 Each API refresh stores an estimated arrival timestamp from the API receipt time
 plus the API-provided remaining seconds. Sensor states count down locally every
 30 seconds between API refreshes, so the dashboard stays fresh without increasing
-API traffic. Subway API refreshes default to every 90 seconds.
+API traffic. Subway API refreshes default to every 180 seconds, which keeps the
+two station endpoint calls under roughly 1,000 calls per day.
 
 Attributes include raw arrival message, API-provided remaining time, estimated
 arrival timestamp, destination, current location, generated timestamp, vehicle
@@ -78,6 +84,14 @@ entities:
     name: 7호선 상행
   - entity: sensor.gunja_7_line_down
     name: 7호선 하행
+  - entity: sensor.nonhyeon_7_line_up
+    name: 논현 7호선 상행
+  - entity: sensor.nonhyeon_7_line_down
+    name: 논현 7호선 하행
+  - entity: sensor.nonhyeon_shinbundang_line_up
+    name: 논현 신분당선 상행
+  - entity: sensor.nonhyeon_shinbundang_line_down
+    name: 논현 신분당선 하행
 ```
 
 Optional bus entities, when a bus key is configured:

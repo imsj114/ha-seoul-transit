@@ -7,7 +7,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .const import BUS_STOPS, DOMAIN, SUBWAY_DIRECTIONS, SUBWAY_LINES
+from .const import (
+    BUS_STOPS,
+    DOMAIN,
+    SUBWAY_DIRECTIONS,
+    SUBWAY_LINE_KEYS,
+    SUBWAY_LINE_NAMES,
+    SUBWAY_STOPS,
+)
 
 
 @dataclass(frozen=True)
@@ -42,17 +49,21 @@ class SensorSpec:
     key: str
     label: str
     source: str
+    station_key: str | None = None
+    station_name: str | None = None
     line_id: str | None = None
     direction: str | None = None
     stop_key: str | None = None
 
 
-def subway_sensor_key(line_id: str, direction: str) -> str:
+def subway_sensor_key(line_id: str, direction: str, station_key: str = "gunja") -> str:
     """Return the stable sensor key for a subway line/direction pair."""
 
     direction_key = "up" if direction == "상행" else "down"
-    line_key = SUBWAY_LINES[line_id].replace("호선", "")
-    return f"subway_line_{line_key}_{direction_key}"
+    line_key = SUBWAY_LINE_KEYS[line_id]
+    if station_key == "gunja":
+        return f"subway_line_{line_key}_{direction_key}"
+    return f"subway_{station_key}_line_{line_key}_{direction_key}"
 
 
 def build_sensor_specs(include_bus: bool = True) -> tuple[SensorSpec, ...]:
@@ -60,13 +71,17 @@ def build_sensor_specs(include_bus: bool = True) -> tuple[SensorSpec, ...]:
 
     subway_specs = tuple(
         SensorSpec(
-            key=subway_sensor_key(line_id, direction),
-            label=f"군자 {line_name} {direction}",
+            key=subway_sensor_key(line_id, direction, stop.key),
+            label=f"{stop.label} {line_name} {direction}",
             source="subway",
+            station_key=stop.key,
+            station_name=stop.name,
             line_id=line_id,
             direction=direction,
         )
-        for line_id, line_name in SUBWAY_LINES.items()
+        for stop in SUBWAY_STOPS
+        for line_id in stop.line_ids
+        for line_name in (SUBWAY_LINE_NAMES[line_id],)
         for direction in SUBWAY_DIRECTIONS
     )
     if not include_bus:

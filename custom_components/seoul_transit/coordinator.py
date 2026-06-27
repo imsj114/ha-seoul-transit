@@ -14,8 +14,8 @@ from .api import (
     SeoulTransitAuthError,
     SeoulTransitConnectionError,
 )
-from .const import DOMAIN, SUBWAY_DIRECTIONS, SUBWAY_LINES
-from .models import Arrival, subway_sensor_key
+from .const import DOMAIN
+from .models import Arrival, build_sensor_specs
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,20 +51,19 @@ class SeoulSubwayCoordinator(DataUpdateCoordinator[dict[str, Arrival | None]]):
             ) from err
 
         data: dict[str, Arrival | None] = {}
-        for line_id in SUBWAY_LINES:
-            for direction in SUBWAY_DIRECTIONS:
-                key = subway_sensor_key(line_id, direction)
-                values = arrivals.get((line_id, direction), [])
-                data[key] = values[0] if values else None
-                if values[1:]:
-                    second = values[1]
-                    current = data[key]
-                    if current is not None:
-                        current.attributes["second_arrival_minutes"] = second.minutes
-                        current.attributes["second_arrival_message"] = (
-                            second.raw_message
-                        )
-                        current.attributes["second_destination"] = second.destination
+        for spec in build_sensor_specs(include_bus=False):
+            values = arrivals.get(spec.key, [])
+            data[spec.key] = values[0] if values else None
+            if values[1:]:
+                second = values[1]
+                current = data[spec.key]
+                if current is not None:
+                    current.attributes["second_arrival_minutes"] = second.minutes
+                    current.attributes["second_arrival_message"] = second.raw_message
+                    current.attributes["second_destination"] = second.destination
+                    current.attributes["second_estimated_arrival_at"] = (
+                        second.estimated_arrival_at
+                    )
         return data
 
 
