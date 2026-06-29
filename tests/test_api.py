@@ -131,6 +131,24 @@ def test_parse_bus_payload_success() -> None:
     assert arrival.vehicle_id == "서울70사1234"
 
 
+def test_parse_bus_payload_fractional_generated_time() -> None:
+    xml_text = (FIXTURES / "bus_success.xml").read_text().replace(
+        "2026-06-27 18:35:00",
+        "2026-06-27 18:35:00.0",
+    )
+
+    arrival = parse_bus_payload(xml_text, BUS_STOPS[0])
+
+    assert arrival is not None
+    assert arrival.received_at == datetime(2026, 6, 27, 18, 35, tzinfo=SEOUL_TZ)
+    assert arrival.estimated_arrival_at == datetime(
+        2026, 6, 27, 18, 38, 20, tzinfo=SEOUL_TZ
+    )
+    assert arrival.following[0].estimated_arrival_at == datetime(
+        2026, 6, 27, 18, 44, 10, tzinfo=SEOUL_TZ
+    )
+
+
 def test_parse_bus_payload_no_arrival() -> None:
     xml_text = (FIXTURES / "bus_no_arrival.xml").read_text()
 

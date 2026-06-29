@@ -30,7 +30,7 @@ BUS_API_URL = "http://ws.bus.go.kr/api/rest/arrive/getArrInfoByRoute"
 
 AUTH_MARKERS = ("KEY", "Key", "인증", "SERVICE KEY", "등록되지")
 SEOUL_TZ = ZoneInfo("Asia/Seoul")
-DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y%m%d%H%M%S")
+DATETIME_FORMATS = ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y%m%d%H%M%S")
 SUBWAY_POSITION_RE = re.compile(
     r"^\[(?P<stops>\d+)\]번째 전역 \((?P<station>.+)\)$"
 )
