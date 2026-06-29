@@ -1,7 +1,7 @@
 {
   "domain": "seoul_transit",
   "name": "Seoul Transit",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "codeowners": ["@imsj114"],
   "config_flow": true,
   "dependencies": [],

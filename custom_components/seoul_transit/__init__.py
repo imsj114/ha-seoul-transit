@@ -36,19 +36,20 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
 
     from .coordinator import SeoulBusCoordinator, SeoulSubwayCoordinator
 
+    settings = {**entry.data, **entry.options}
     session = async_get_clientsession(hass)
     client = SeoulTransitApiClient(
         session=session,
-        subway_api_key=entry.data[CONF_SUBWAY_API_KEY],
-        bus_api_key=entry.data.get(CONF_BUS_API_KEY),
+        subway_api_key=settings[CONF_SUBWAY_API_KEY],
+        bus_api_key=settings.get(CONF_BUS_API_KEY),
     )
-    subway_interval = entry.data.get(
+    subway_interval = settings.get(
         CONF_SUBWAY_SCAN_INTERVAL, DEFAULT_SUBWAY_SCAN_INTERVAL
     )
     subway_coordinator = SeoulSubwayCoordinator(hass, entry, client, subway_interval)
     bus_coordinator = None
-    if entry.data.get(CONF_BUS_API_KEY):
-        bus_interval = entry.data.get(CONF_BUS_SCAN_INTERVAL, DEFAULT_BUS_SCAN_INTERVAL)
+    if settings.get(CONF_BUS_API_KEY):
+        bus_interval = settings.get(CONF_BUS_SCAN_INTERVAL, DEFAULT_BUS_SCAN_INTERVAL)
         bus_coordinator = SeoulBusCoordinator(hass, entry, client, bus_interval)
 
     await subway_coordinator.async_config_entry_first_refresh()
@@ -61,8 +62,15 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
         bus_coordinator=bus_coordinator,
     )
 
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_update_listener(hass: Any, entry: Any) -> None:
+    """Reload Seoul Transit after options are changed."""
+
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_migrate_entry(hass: Any, entry: Any) -> bool:
